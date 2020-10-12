@@ -28,7 +28,7 @@ const deleteCard = (req, res) => {
       errStatus = 404;
       throw new ValidationError('Нет карточки с таким id');
     })
-    .then ((card)=>{
+    .then((card) => {
       if (req.user._id === card.owner._id.toString()) {
         const cardDeleted = card;
         Card.deleteOne(card)
@@ -36,14 +36,14 @@ const deleteCard = (req, res) => {
             errStatus = 500;
             throw new ValidationError('Сбой сервера - удаление неуспешно');
           })
-          .then((card) => res.send({ data: cardDeleted }))
+          .then(() => res.send({ data: cardDeleted }))
           .catch((err) => res.status(errStatus).send({ message: err.message }));
-        }
-        else {
-          throw new Error('Нельзя удалить чужую карточку');
-        }
-      })
-    .catch((err)=> res.status(errStatus).send({ message: err.message }));
+      } else {
+        errStatus = 409;
+        throw new Error('Нельзя удалить чужую карточку');
+      }
+    })
+    .catch((err) => res.status(errStatus).send({ message: err.message }));
 };
 
 const setLike = (req, res) => {

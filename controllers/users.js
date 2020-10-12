@@ -1,8 +1,8 @@
-const User = require('../models/user');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const crypto = require('crypto');
-const { NODE_ENV,JWT_SECRET } = process.env;
+const User = require('../models/user');
+
+const { NODE_ENV, JWT_SECRET } = process.env;
 
 class ValidationError extends Error {
   constructor(message) {
@@ -32,12 +32,40 @@ const readUserById = (req, res) => {
 };
 
 const createUser = (req, res) => {
-  const { name, about, avatar, email, password } = req.body;
+  const {
+    name, about, avatar, email, password,
+  } = req.body;
+  if (
+    password.length < 8
+    || password.split('').every(
+      (elem, index, array) => elem === array[0],
+    )
+  ) {
+    res.status(400).send({ message: 'Пароль не соответствует требованиям' });
+    return;
+  }
+
   bcrypt.hash(password, 10)
-    .then(hash=>
-      User.create({ name, about, avatar, email, password:hash }))
-    .then((user) => res.status(201).send({ data: user }))
-    .catch((err) => res.status(400).send({ message: 'Ошибка валидации полей пользователя' }));
+    .then((hash) => User.create({
+      name, about, avatar, email, password: hash,
+    }))
+    .then((user) => res.status(201).send({
+      data: {
+        name: user.name, about: user.about, avatar: user.avatar, email: user.email,
+      },
+    }))
+    .catch((err) => {
+      let errStatus;
+      let errMessage;
+      if (err.name === 'MongoError' && err.code === 11000) {
+        errStatus = 409;
+        errMessage = 'Повторный email';
+      } else {
+        errStatus = 400;
+        errMessage = 'Ошибка валидации полей пользователя';
+      }
+      res.status(errStatus).send({ message: errMessage });
+    });
 };
 
 const updateUser = (req, res) => {
@@ -49,9 +77,8 @@ const updateUser = (req, res) => {
       errStatus = 500;
       throw new ValidationError('Ошибка сервера - обновление не удалось сохранить');
     })
-      .then(() => res.status(200).send({ data: { name, about } }))
-      .catch((err) => res.status(errStatus).send({ message: err.message }));
-
+    .then(() => res.status(200).send({ data: { name, about } }))
+    .catch((err) => res.status(errStatus).send({ message: err.message }));
 };
 
 const updateUserAvatar = (req, res) => {
@@ -65,30 +92,28 @@ const updateUserAvatar = (req, res) => {
     })
     .then(() => res.status(200).send({ data: { avatar } }))
     .catch((err) => res.status(errStatus).send({ message: err.message }));
-
 };
 
 const login = (req, res) => {
   const { email, password } = req.body;
 
   return User.findUserByCredentials(email, password)
-    .then((user)=>{
-      const token = jwt.sign({_id:user.id},
-        NODE_ENV === 'production'? JWT_SECRET:'dev-super-duper-secret',
-        {expiresIn: '7d'});
+    .then((user) => {
+      const token = jwt.sign({ _id: user.id },
+        NODE_ENV === 'production' ? JWT_SECRET : 'dev-super-duper-secret',
+        { expiresIn: '7d' });
       res.cookie('jwt', token, {
         maxAge: 3600000 * 24 * 7,
         httpOnly: true,
         sameSite: true,
       })
-      .end();
+        .send({ message: 'Удачный логин' });
     })
-    .catch((err)=>{
+    .catch((err) => {
       res
         .status(401)
         .send({ message: err.message });
-
-    })
+    });
 };
 
 module.exports = {
