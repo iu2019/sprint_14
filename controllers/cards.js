@@ -37,13 +37,13 @@ const deleteCard = (req, res) => {
             throw new ValidationError('Сбой сервера - удаление неуспешно');
           })
           .then(() => res.send({ data: cardDeleted }))
-          .catch((err) => res.status(errStatus).send({ message: err.message }));
+          .catch(() => res.status(errStatus).send({ message: 'Неопределенная ошибка' }));
       } else {
-        errStatus = 409;
+        errStatus = 403;
         throw new Error('Нельзя удалить чужую карточку');
       }
     })
-    .catch((err) => res.status(errStatus).send({ message: err.message }));
+    .catch(() => res.status(errStatus).send({ message: 'Недопустимый формат номера карточки' }));
 };
 
 const setLike = (req, res) => {
